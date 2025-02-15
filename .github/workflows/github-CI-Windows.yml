@@ -79,9 +79,9 @@ jobs:
         cd $CDir
         export CFLAGS+=" -Wall -DGNULIB_defined_ESOCK"
         if [ "${{matrix.ftype}}" = "wintls-static-lite" ]; then
-          CFLAGS+=" -D_WIN32_WINNT=0x0600 -Os -flto=$(nproc)" LDFLAGS="-static -s -flto=$(nproc)" $BRoot/wget/configure --prefix=$BRoot/$BDir --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
+          CFLAGS+=" -D_WIN32_WINNT=0x0600 -Os -flto=$(nproc) -fuse-linker-plugin" LDFLAGS="-static -s -flto=$(nproc)" $BRoot/wget/configure --prefix=$BRoot/$BDir --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
         elif [ "${{matrix.ftype}}" = "openssl-lite" ]; then
-          CFLAGS+=" -Os -flto=$(nproc)" LDFLAGS="-static -s -flto=$(nproc)" $BRoot/wget/configure --prefix=$BRoot/$BDir --with-ssl=openssl --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
+          CFLAGS+=" -Os -flto=$(nproc)" LDFLAGS="-static -s -flto=$(nproc) -fuse-linker-plugin" $BRoot/wget/configure --prefix=$BRoot/$BDir --with-ssl=openssl --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
         fi
 
     - name: Build
