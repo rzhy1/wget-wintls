@@ -13,7 +13,7 @@ jobs:
       matrix:
         bits: [64]
         ftype: [wintls-static-lite,openssl-lite]
-      fail-fast: false
+      fail-fast: true
     name: wget-wintls
     runs-on: windows-latest
     env:
@@ -47,13 +47,8 @@ jobs:
           gperf
           autoconf
           automake
-          autoconf-archive
           git
-          python
-          libcares-devel
-          mingw-w64-${{env.arch}}-gpgme
           mingw-w64-${{env.arch}}-gcc
-          mingw-w64-${{env.arch}}-gettext
           mingw-w64-${{env.arch}}-openssl
         
     # 克隆指定的仓库
@@ -67,7 +62,7 @@ jobs:
         find / -type f -name "*strip.exe"
         echo "显示"
         ./bootstrap --skip-po
-        sed -i "s/-dirty\b//p" configure
+        #sed -i "s/-dirty\b//p" configure
 
     - name: Install win-iconv (Build)
       run: |
@@ -91,7 +86,7 @@ jobs:
     - name: Build
       run: |
         cd $CDir
-        echo -e "all:\n\n" > gnulib_po/Makefile
+        #echo -e "all:\n\n" > gnulib_po/Makefile
         make -j$(nproc)
         echo "显示文件大小"
         ls -l ${PWD}/src/wget.exe
