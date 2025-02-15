@@ -43,13 +43,13 @@ jobs:
         path-type: inherit
         install: >-
           pkgconf
+          gperf
           base-devel
           autoconf
           automake
           git
           mingw-w64-${{env.arch}}-gcc
-          mingw-w64-${{env.arch}}-openssl
-# ${{ matrix.ftype == 'openssl-lite' && 'mingw-w64-${{env.arch}}-openssl' || '' }}
+          ${{ matrix.ftype == 'openssl-lite' && 'mingw-w64-x86_64-openssl' || '' }}
         
     # 克隆指定的仓库
     - name: Clone wget repository
@@ -61,12 +61,12 @@ jobs:
         ./bootstrap --skip-po
         sed -i "s/-dirty\b//p" configure
 
-    - name: Install win-iconv (Build)
-      run: |
-        git clone -j$(nproc) https://github.com/gajgeospatial/win-iconv-1.0.0.git win-iconv
-        cd win-iconv
-        make -E CFLAGS=-Os prefix=/$mingw install
-        cd ..
+    #- name: Install win-iconv (Build)
+    #  run: |
+    #    git clone -j$(nproc) https://github.com/gajgeospatial/win-iconv-1.0.0.git win-iconv
+    #    cd win-iconv
+    #    make -E CFLAGS=-Os prefix=/$mingw install
+    #    cd ..
         
     - name: configure
       run: |
