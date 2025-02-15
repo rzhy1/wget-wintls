@@ -26,11 +26,9 @@ jobs:
     - name: Set up ENVs for MSYS2 to inherit
       shell: bash
       run: |
-        arch="x86_64"
         BRoot="${PWD}"
         BDir="build/${build_type}/${mingw}"
         CDir="${BDir}-config"
-        echo arch="$arch" >> $GITHUB_ENV
         echo BRoot="$BRoot" >> $GITHUB_ENV
         echo BDir="$BDir" >> $GITHUB_ENV
         echo CDir="$CDir" >> $GITHUB_ENV
@@ -48,7 +46,8 @@ jobs:
           autoconf
           automake
           git
-          mingw-w64-${{env.arch}}-gcc
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-gettext
           ${{ matrix.ftype == 'openssl-lite' && 'mingw-w64-x86_64-openssl' || '' }}
         
     # 克隆指定的仓库
