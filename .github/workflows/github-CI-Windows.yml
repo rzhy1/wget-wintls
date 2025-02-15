@@ -44,12 +44,11 @@ jobs:
         install: >-
           pkgconf
           base-devel
-          gperf
           autoconf
           automake
           git
           mingw-w64-${{env.arch}}-gcc
-          mingw-w64-${{env.arch}}-openssl
+          ${{ matrix.ftype == 'openssl-lite' && 'mingw-w64-${{env.arch}}-openssl' || '' }}
         
     # 克隆指定的仓库
     - name: Clone wget repository
@@ -59,7 +58,7 @@ jobs:
       run: |
         cd wget
         ./bootstrap --skip-po
-        #sed -i "s/-dirty\b//p" configure
+        sed -i "s/-dirty\b//p" configure
 
     - name: Install win-iconv (Build)
       run: |
