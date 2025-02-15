@@ -64,7 +64,7 @@ jobs:
       run: |
         cd wget # 进入克隆的仓库目录
         echo "显示"
-        find / -type f -name "*strip.exe*
+        find / -type f -name "*strip.exe"
         echo "显示"
         ./bootstrap --skip-po
         sed -i "s/-dirty\b//p" configure
