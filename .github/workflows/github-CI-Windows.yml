@@ -48,7 +48,8 @@ jobs:
           automake
           git
           mingw-w64-${{env.arch}}-gcc
-          ${{ matrix.ftype == 'openssl-lite' && 'mingw-w64-${{env.arch}}-openssl' || '' }}
+          mingw-w64-${{env.arch}}-openssl
+# ${{ matrix.ftype == 'openssl-lite' && 'mingw-w64-${{env.arch}}-openssl' || '' }}
         
     # 克隆指定的仓库
     - name: Clone wget repository
