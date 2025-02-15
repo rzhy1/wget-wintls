@@ -86,7 +86,7 @@ jobs:
         echo '    if (new_str == NULL)' >> strndup.c
         echo '        return NULL;' >> strndup.c
         echo '    memcpy(new_str, s, len);' >> strndup.c
-        echo '    new_str[len] = \'\\0\';' >> strndup.c
+        echo '    new_str[len] = '\''\\0\'';' >> strndup.c  # 修改为正确的转义
         echo '    return new_str;' >> strndup.c
         echo '}' >> strndup.c
 
