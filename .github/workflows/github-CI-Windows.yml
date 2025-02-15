@@ -43,6 +43,7 @@ jobs:
           pkgconf
           gperf
           base-devel
+          autoconf-archive
           autoconf
           automake
           git
