@@ -57,10 +57,7 @@ jobs:
    
     - name: Generate configure
       run: |
-        cd wget # 进入克隆的仓库目录
-        echo "显示"
-        find / -type f -name "*strip.exe"
-        echo "显示"
+        cd wget
         ./bootstrap --skip-po
         #sed -i "s/-dirty\b//p" configure
 
