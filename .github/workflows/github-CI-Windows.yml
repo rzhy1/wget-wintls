@@ -79,9 +79,9 @@ jobs:
         cd $CDir
         export CFLAGS+=" -Wall -DGNULIB_defined_ESOCK"
         if [ "${{matrix.ftype}}" = "wintls-static-lite" ]; then
-          CFLAGS+=" -D_WIN32_WINNT=0x0600 -Os" LDFLAGS="-static -s" $BRoot/wget/configure --prefix=$BRoot/$BDir --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
+          CFLAGS+=" -D_WIN32_WINNT=0x0600 -Os -flto=$(nproc)" LDFLAGS="-static -s -flto=$(nproc)" $BRoot/wget/configure --prefix=$BRoot/$BDir --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
         elif [ "${{matrix.ftype}}" = "openssl-lite" ]; then
-          CFLAGS+=" -Os" LDFLAGS="-static -s" $BRoot/wget/configure --prefix=$BRoot/$BDir --with-ssl=openssl --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
+          CFLAGS+=" -Os -flto=$(nproc)" LDFLAGS="-static -s -flto=$(nproc)" $BRoot/wget/configure --prefix=$BRoot/$BDir --with-ssl=openssl --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
         fi
 
     - name: Build
@@ -89,7 +89,12 @@ jobs:
         cd $CDir
         echo -e "all:\n\n" > gnulib_po/Makefile
         make -j$(nproc)
+        echo "检查大小"
+        ls -l ${PWD}/src/wget.exe
         strip ${PWD}/src/wget.exe
+        echo "检查大小"
+        ls -l ${PWD}/src/wget.exe
+        echo "检查结束"
         cp -fv ${PWD}/src/wget.exe ${PWD}/src/wget-${{matrix.ftype}}.exe
 
     - name: Show compiled wget info
