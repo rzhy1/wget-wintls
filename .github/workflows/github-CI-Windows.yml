@@ -58,7 +58,10 @@ jobs:
         
     # 克隆指定的仓库
     - name: Clone wget repository
-      run: git clone --branch mydev https://github.com/lifenjoiner/wget-for-windows.git wget
+      run: |
+        git clone --branch mydev https://github.com/lifenjoiner/wget-for-windows.git wget
+        echo "查询"
+        ls /mingw64/lib/libssp*
    
     - name: Generate configure
       run: |
