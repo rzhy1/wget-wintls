@@ -77,11 +77,26 @@ jobs:
         mkdir -p $BDir
         mkdir -p $CDir
         cd $CDir
+        echo '#include <stdlib.h>' > strndup.c  # 创建 strndup.c 文件
+        echo '#include <string.h>' >> strndup.c
+        echo '' >> strndup.c
+        echo 'char *strndup(const char *s, size_t n) {' >> strndup.c
+        echo '    size_t len = strnlen(s, n);' >> strndup.c
+        echo '    char *new_str = (char *)malloc(len + 1);' >> strndup.c
+        echo '    if (new_str == NULL)' >> strndup.c
+        echo '        return NULL;' >> strndup.c
+        echo '    memcpy(new_str, s, len);' >> strndup.c
+        echo '    new_str[len] = \'\\0\';' >> strndup.c
+        echo '    return new_str;' >> strndup.c
+        echo '}' >> strndup.c
+
         export CFLAGS+=" -Wall -DGNULIB_defined_ESOCK"
+        # 将 strndup.c 加入编译，注意这里用空格分隔，确保它被识别为源文件
+        export CFLAGS+=" strndup.c "
         if [ "${{matrix.ftype}}" = "wintls-static-lite" ]; then
-          CFLAGS+=" -D_WIN32_WINNT=0x0600 -Os -flto=$(nproc) -fuse-linker-plugin" LDFLAGS="-static -s -flto=$(nproc)" $BRoot/wget/configure --prefix=$BRoot/$BDir --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
+        CFLAGS+=" -D_WIN32_WINNT=0x0600 -Os -flto=$(nproc)" LDFLAGS="-static -s -flto=$(nproc)" $BRoot/wget/configure --prefix=$BRoot/$BDir --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
         elif [ "${{matrix.ftype}}" = "openssl-lite" ]; then
-          CFLAGS+=" -Os -flto=$(nproc)" LDFLAGS="-static -s -flto=$(nproc) -fuse-linker-plugin" $BRoot/wget/configure --prefix=$BRoot/$BDir --with-ssl=openssl --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
+          CFLAGS+=" -Os -flto=$(nproc)" LDFLAGS="-static -s -flto=$(nproc)" $BRoot/wget/configure --prefix=$BRoot/$BDir --with-ssl=openssl --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
         fi
 
     - name: Build
