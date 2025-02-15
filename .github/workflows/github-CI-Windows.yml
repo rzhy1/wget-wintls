@@ -83,13 +83,8 @@ jobs:
     - name: Build
       run: |
         cd $CDir
-        #echo -e "all:\n\n" > gnulib_po/Makefile
+        echo -e "all:\n\n" > gnulib_po/Makefile
         make -j$(nproc)
-        echo "显示文件大小"
-        ls -l ${PWD}/src/wget.exe
-        strip ${PWD}/src/wget.exe
-        echo "显示文件大小"
-        ls -l ${PWD}/src/wget.exe
         cp -fv ${PWD}/src/wget.exe ${PWD}/src/wget-${{matrix.ftype}}.exe
 
     - name: Show compiled wget info
