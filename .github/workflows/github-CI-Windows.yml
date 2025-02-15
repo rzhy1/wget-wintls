@@ -79,18 +79,18 @@ jobs:
         mkdir -p $CDir
         cd $CDir
         # 创建 strndup.c 文件到 src 目录 (假设 $BRoot/wget 是 wget 源代码根目录)
-        echo '#include <stdlib.h>' > $BRoot/wget/src/strndup.c
-        echo '#include <string.h>' >> $BRoot/wget/src/strndup.c
-        echo '' >> $BRoot/wget/src/strndup.c
-        echo 'char *strndup(const char *s, size_t n) {' >> $BRoot/wget/src/strndup.c
-        echo '    size_t len = strnlen(s, n);' >> $BRoot/wget/src/strndup.c
-        echo '    char *new_str = (char *)malloc(len + 1);' >> $BRoot/wget/src/strndup.c
-        echo '    if (new_str == NULL)' >> $BRoot/wget/src/strndup.c
-        echo '        return NULL;' >> $BRoot/wget/src/strndup.c
-        echo '    memcpy(new_str, s, len);' >> $BRoot/wget/src/strndup.c
-        echo '    new_str[len] = '\''\\0\'';' >> $BRoot/wget/src/strndup.c
-        echo '    return new_str;' >> $BRoot/wget/src/strndup.c
-        echo '}' >> $BRoot/wget/src/strndup.c
+        echo '#include <stdlib.h>' > strndup.c
+        echo '#include <string.h>' >> strndup.c
+        echo '' >> strndup.c
+        echo 'char *strndup(const char *s, size_t n) {' >> strndup.c
+        echo '    size_t len = strnlen(s, n);' >> strndup.c
+        echo '    char *new_str = (char *)malloc(len + 1);' >> strndup.c
+        echo '    if (new_str == NULL)' >> strndup.c
+        echo '        return NULL;' >> strndup.c
+        echo '    memcpy(new_str, s, len);' >> strndup.c
+        echo '    new_str[len] = '\''\\0\'';' >> strndup.c
+        echo '    return new_str;' >> strndup.c
+        echo '}' >> strndup.c
         echo "修改Makefile.am并显示"
         sed -i 's/^\(wget_SOURCES\s*=\s*\)/\1strndup.c /' Makefile.am
         cat Makefile.am # 可选：打印修改后的 Makefile.am 内容，用于调试
