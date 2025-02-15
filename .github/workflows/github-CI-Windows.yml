@@ -52,6 +52,7 @@ jobs:
           libcares-devel
           mingw-w64-${{env.arch}}-gpgme
           mingw-w64-${{env.arch}}-gcc
+          mingw-w64-${{env.arch}}-gcc-libs
           mingw-w64-${{env.arch}}-gettext
           mingw-w64-${{env.arch}}-openssl
         
@@ -77,26 +78,11 @@ jobs:
         mkdir -p $BDir
         mkdir -p $CDir
         cd $CDir
-        echo '#include <stdlib.h>' > strndup.c  # 创建 strndup.c 文件
-        echo '#include <string.h>' >> strndup.c
-        echo '' >> strndup.c
-        echo 'char *strndup(const char *s, size_t n) {' >> strndup.c
-        echo '    size_t len = strnlen(s, n);' >> strndup.c
-        echo '    char *new_str = (char *)malloc(len + 1);' >> strndup.c
-        echo '    if (new_str == NULL)' >> strndup.c
-        echo '        return NULL;' >> strndup.c
-        echo '    memcpy(new_str, s, len);' >> strndup.c
-        echo '    new_str[len] = '\''\\0\'';' >> strndup.c  # 修改为正确的转义
-        echo '    return new_str;' >> strndup.c
-        echo '}' >> strndup.c
-
-        export CFLAGS+=" -Wall -DGNULIB_defined_ESOCK"
-        # 将 strndup.c 加入编译，注意这里用空格分隔，确保它被识别为源文件
-        export CFLAGS+=" strndup.c "
+        export CFLAGS+=" -Wall -DGNULIB_defined_ESOCK -D_GNU_SOURCE"  # 添加 -D_GNU_SOURCE
         if [ "${{matrix.ftype}}" = "wintls-static-lite" ]; then
-        CFLAGS+=" -D_WIN32_WINNT=0x0600 -Os -flto=$(nproc)" LDFLAGS="-static -s -flto=$(nproc)" $BRoot/wget/configure --prefix=$BRoot/$BDir --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
-        elif [ "${{matrix.ftype}}" = "openssl-lite" ]; then
-          CFLAGS+=" -Os -flto=$(nproc)" LDFLAGS="-static -s -flto=$(nproc)" $BRoot/wget/configure --prefix=$BRoot/$BDir --with-ssl=openssl --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
+          CFLAGS+=" -D_WIN32_WINNT=0x0600 -Os -flto=$(nproc)" LDFLAGS="-static -s -flto=$(nproc) -lssp" $BRoot/wget/configure --prefix=$BRoot/$BDir --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
+          elif [ "${{matrix.ftype}}" = "openssl-lite" ]; then
+          CFLAGS+=" -Os -flto=$(nproc)" LDFLAGS="-static -s -flto=$(nproc) -lssp" $BRoot/wget/configure --prefix=$BRoot/$BDir --with-ssl=openssl --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
         fi
 
     - name: Build
@@ -104,12 +90,7 @@ jobs:
         cd $CDir
         echo -e "all:\n\n" > gnulib_po/Makefile
         make -j$(nproc)
-        echo "检查大小"
-        ls -l ${PWD}/src/wget.exe
         strip ${PWD}/src/wget.exe
-        echo "检查大小"
-        ls -l ${PWD}/src/wget.exe
-        echo "检查结束"
         cp -fv ${PWD}/src/wget.exe ${PWD}/src/wget-${{matrix.ftype}}.exe
 
     - name: Show compiled wget info
