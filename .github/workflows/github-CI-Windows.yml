@@ -85,6 +85,7 @@ jobs:
         cd $CDir
         echo -e "all:\n\n" > gnulib_po/Makefile
         make -j$(nproc)
+        strip ${PWD}/src/wget.exe
         cp -fv ${PWD}/src/wget.exe ${PWD}/src/wget-${{matrix.ftype}}.exe
 
     - name: Show compiled wget info
