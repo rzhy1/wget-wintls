@@ -61,19 +61,19 @@ jobs:
         ./bootstrap --skip-po
         sed -i "s/-dirty\b//p" configure
 
-    #- name: Install win-iconv (Build)
-    #  run: |
-    #    git clone -j$(nproc) https://github.com/gajgeospatial/win-iconv-1.0.0.git win-iconv
-    #    cd win-iconv
-    #    make -E CFLAGS=-Os prefix=/$mingw install
-    #    cd ..
+    - name: Install win-iconv (Build)
+      run: |
+        git clone -j$(nproc) https://github.com/gajgeospatial/win-iconv-1.0.0.git win-iconv
+        cd win-iconv
+        make -E CFLAGS=-Os prefix=/$mingw install
+        cd ..
         
     - name: configure
       run: |
         mkdir -p $BDir
         mkdir -p $CDir
         cd $CDir
-        export CFLAGS+="-Wall -DGNULIB_defined_ESOCK"
+        export CFLAGS+="-DGNULIB_defined_ESOCK"
         if [ "${{matrix.ftype}}" = "wintls-static-lite" ]; then
           CFLAGS+=" -D_WIN32_WINNT=0x0A00 -Os" LDFLAGS="-static -s" $BRoot/wget/configure --prefix=$BRoot/$BDir --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
         elif [ "${{matrix.ftype}}" = "openssl-lite" ]; then
