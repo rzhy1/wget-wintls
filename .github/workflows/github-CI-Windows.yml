@@ -37,7 +37,7 @@ jobs:
       uses: msys2/setup-msys2@v2
       with:
         msystem: ${{env.mingw}}
-        release: false
+        release: true
         path-type: inherit
         install: >-
           pkgconf
