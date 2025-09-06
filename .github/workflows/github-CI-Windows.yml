@@ -60,12 +60,8 @@ jobs:
         cd wget
         git submodule init
         git config submodule.gnulib.url https://github.com/coreutils/gnulib.git
-        # 先取消初始化子模块
-        git submodule deinit -f gnulib
-        # 删除旧有子模块目录
-        rm -rf .git/modules/gnulib
-        # 重新初始化并更新
-        git submodule update --init --remote --depth=1 --checkout gnulib
+        git config -f .gitmodules submodule.gnulib.branch master
+        git submodule update --init --remote --depth=1 gnulib
         ./bootstrap --skip-po
         sed -i "s/-dirty\b//p" configure
 
