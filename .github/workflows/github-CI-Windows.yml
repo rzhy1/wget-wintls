@@ -58,11 +58,17 @@ jobs:
     - name: Generate configure
       run: |
         cd wget
-        git submodule init
-        git config submodule.gnulib.url https://github.com/coreutils/gnulib.git
-        git config -f .gitmodules submodule.gnulib.branch master
-        git submodule update --init --remote --depth=1 gnulib
-        ./bootstrap --skip-po
+        # 删除现有 gnulib 子模块（如果存在）
+        if [ -d "gnulib" ]; then
+          rm -rf gnulib
+        fi
+        
+        # 直接克隆最新版 gnulib（使用浅克隆加速）
+        git clone --depth=1 https://github.com/coreutils/gnulib.git
+        
+        # 运行 bootstrap 脚本
+        ./bootstrap --skip-po --gnulib-srcdir=gnulib
+        #./bootstrap --skip-po
         sed -i "s/-dirty\b//p" configure
 
     - name: Install win-iconv (Build)
