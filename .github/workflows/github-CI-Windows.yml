@@ -60,6 +60,7 @@ jobs:
         cd wget
         git submodule init
         git config submodule.gnulib.url https://github.com/coreutils/gnulib.git
+        git config -f .gitmodules submodule.gnulib.branch mydev
         git submodule update --init --remote --depth=1 gnulib
         ./bootstrap --skip-po
         sed -i "s/-dirty\b//p" configure
