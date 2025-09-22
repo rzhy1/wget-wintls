@@ -9,7 +9,7 @@ on:
         description: "强制编译 (1=强制, 0=仅检测更新)"
         required: false
         default: "0"
-  schedule:  
+  schedule:
     - cron: "0 0 * * *"
 
 jobs:
@@ -22,138 +22,175 @@ jobs:
     name: wget-wintls
     runs-on: windows-latest
     env:
-      mingw: mingw${{matrix.bits}}
-      build_type: ${{matrix.ftype}}
+      mingw: mingw${{ matrix.bits }}
+      build_type: ${{ matrix.ftype }}
+      # workflow_dispatch 时可通过界面输入 force=1 强制编译
       FORCE_BUILD: ${{ github.event.inputs.force || '0' }}
     defaults:
       run:
         shell: msys2 {0}
+
     steps:
-    - name: Restore last upstream SHA
-      uses: actions/cache@v4
-      with:
-        path: .cache
-        key: upstream-sha-cache
+      # 尝试恢复最近一次保存的 .cache（我们用 prefix upstream-sha- 来查找）
+      - name: Restore last upstream SHA cache
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: upstream-sha-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            upstream-sha-${{ runner.os }}-
 
-    - name: Check upstream changes
-      shell: bash
-      run: |
-        mkdir -p .cache
-        git clone --depth=1 https://github.com/lifenjoiner/wget-for-windows.git tmprepo
-        NEW_SHA=$(cd tmprepo && git rev-parse HEAD)
-        echo "NEW_SHA=$NEW_SHA"
+      # 检查上游是否有更新，写出 outputs: new_sha / old_sha / skip
+      - id: check_upstream
+        name: Check upstream changes
+        shell: bash
+        run: |
+          mkdir -p .cache
 
-        if [ -f .cache/last_sha ]; then
-          OLD_SHA=$(cat .cache/last_sha)
-        else
-          OLD_SHA=""
-        fi
-        echo "OLD_SHA=$OLD_SHA"
+          # 获取上游最新 commit
+          git clone --depth=1 https://github.com/lifenjoiner/wget-for-windows.git tmprepo
+          NEW_SHA=$(cd tmprepo && git rev-parse HEAD)
+          echo "new_sha=$NEW_SHA" >> $GITHUB_OUTPUT
+          echo "Found upstream NEW_SHA=$NEW_SHA"
 
-        if [ "$FORCE_BUILD" = "1" ]; then
-          echo "FORCE_BUILD=1, 强制编译，不检查更新"
-        else
-          if [ "$NEW_SHA" = "$OLD_SHA" ]; then
-            echo "No upstream changes, skipping build."
-            exit 0
+          if [ -f .cache/last_sha ]; then
+            OLD_SHA=$(cat .cache/last_sha)
+          else
+            OLD_SHA=""
           fi
-        fi
+          echo "old_sha=$OLD_SHA" >> $GITHUB_OUTPUT
+          echo "Found cached OLD_SHA=$OLD_SHA"
 
-        echo "$NEW_SHA" > .cache/last_sha
+          if [ "${FORCE_BUILD}" = "1" ]; then
+            echo "FORCE_BUILD=1 -> 强制编译"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          else
+            if [ "$NEW_SHA" = "$OLD_SHA" ]; then
+              echo "No upstream changes, skipping build."
+              echo "skip=true" >> $GITHUB_OUTPUT
+              # 注意：这里 exit 0 只是结束本 step，后续步骤由 if 控制是否执行
+              exit 0
+            else
+              # 保存新 sha 到 .cache/last_sha，稍后会把 .cache 缓存为 upstream-sha-<sha>
+              echo "$NEW_SHA" > .cache/last_sha
+              echo "skip=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+        env:
+          FORCE_BUILD: ${{ env.FORCE_BUILD }}
 
-    - name: Set up ENVs for MSYS2 to inherit
-      shell: bash
-      run: |
-        BRoot="${PWD}"
-        BDir="build/${build_type}/${mingw}"
-        CDir="${BDir}-config"
-        echo BRoot="$BRoot" >> $GITHUB_ENV
-        echo BDir="$BDir" >> $GITHUB_ENV
-        echo CDir="$CDir" >> $GITHUB_ENV
+      # 下面的所有构建相关步骤都加上条件：只有 check_upstream.outputs.skip != 'true' 才会运行
+      - name: Set up ENVs for MSYS2 to inherit
+        if: ${{ steps.check_upstream.outputs.skip != 'true' }}
+        shell: bash
+        run: |
+          BRoot="${PWD}"
+          BDir="build/${build_type}/${mingw}"
+          CDir="${BDir}-config"
+          echo BRoot="$BRoot" >> $GITHUB_ENV
+          echo BDir="$BDir" >> $GITHUB_ENV
+          echo CDir="$CDir" >> $GITHUB_ENV
 
-    - name: Set up MSYS2
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: ${{env.mingw}}
-        release: true
-        path-type: inherit
-        install: >-
-          pkgconf
-          gperf
-          base-devel
-          autoconf-archive
-          autoconf
-          automake
-          git
-          mingw-w64-x86_64-gcc
-          mingw-w64-x86_64-gettext
-          ${{ matrix.ftype == 'openssl-lite' && 'mingw-w64-x86_64-openssl' || '' }}
-        
-    - name: Clone wget repository
-      run: git clone --branch mydev https://github.com/lifenjoiner/wget-for-windows.git wget
-   
-    - name: Generate configure
-      run: |
-        cd wget
-        if [ -d "gnulib" ]; then
-          rm -rf gnulib
-        fi
-        git clone --depth=1 https://github.com/coreutils/gnulib.git
-        ./bootstrap --skip-po --gnulib-srcdir=gnulib
-        sed -i "s/-dirty\b//p" configure
+      - name: Set up MSYS2
+        if: ${{ steps.check_upstream.outputs.skip != 'true' }}
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ env.mingw }}
+          release: true
+          path-type: inherit
+          install: >-
+            pkgconf
+            gperf
+            base-devel
+            autoconf-archive
+            autoconf
+            automake
+            git
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-gettext
+            ${{ matrix.ftype == 'openssl-lite' && 'mingw-w64-x86_64-openssl' || '' }}
 
-    - name: Install win-iconv (Build)
-      run: |
-        git clone -j$(nproc) https://github.com/win-iconv/win-iconv.git win-iconv
-        cd win-iconv
-        cmake -G "MSYS Makefiles" -D WIN_ICONV_BUILD_SHARED=OFF -D DISABLE_LOCALE_CHARSET=ON -D CMAKE_INSTALL_PREFIX=/$mingw .
-        make -E CFLAGS=-Os prefix=/$mingw install
-        cd ..
-        
-    - name: configure
-      run: |
-        mkdir -p $BDir
-        mkdir -p $CDir
-        cd $CDir
-        export CFLAGS+="-DGNULIB_defined_ESOCK"
-        if [ "${{matrix.ftype}}" = "wintls-static-lite" ]; then
-          CFLAGS+=" -D_WIN32_WINNT=0x0A00 -Os" LDFLAGS="-static -s" $BRoot/wget/configure --prefix=$BRoot/$BDir --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
-        elif [ "${{matrix.ftype}}" = "openssl-lite" ]; then
-          CFLAGS+=" -Os" LDFLAGS="-static -s" $BRoot/wget/configure --prefix=$BRoot/$BDir --with-ssl=openssl --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
-        fi
+      - name: Clone wget repository
+        if: ${{ steps.check_upstream.outputs.skip != 'true' }}
+        run: git clone --branch mydev https://github.com/lifenjoiner/wget-for-windows.git wget
 
-    - name: Build
-      run: |
-        cd $CDir
-        echo -e "all:\n\n" > gnulib_po/Makefile
-        make -j$(nproc)
-        cp -fv ${PWD}/src/wget.exe ${PWD}/src/wget-${{matrix.ftype}}.exe
+      - name: Generate configure
+        if: ${{ steps.check_upstream.outputs.skip != 'true' }}
+        run: |
+          cd wget
+          if [ -d "gnulib" ]; then
+            rm -rf gnulib
+          fi
+          git clone --depth=1 https://github.com/coreutils/gnulib.git
+          ./bootstrap --skip-po --gnulib-srcdir=gnulib
+          sed -i "s/-dirty\b//p" configure
 
-    - name: Show compiled wget info
-      run: |
-        ls -l $CDir/src/wget-${{matrix.ftype}}.exe
-        SHA=$(sha1sum $CDir/src/wget-${{matrix.ftype}}.exe | cut -b 1-40)
-        echo SHA="$SHA" >> $GITHUB_ENV
-        $CDir/src/wget -V
+      - name: Install win-iconv (Build)
+        if: ${{ steps.check_upstream.outputs.skip != 'true' }}
+        run: |
+          git clone -j$(nproc) https://github.com/win-iconv/win-iconv.git win-iconv
+          cd win-iconv
+          cmake -G "MSYS Makefiles" -D WIN_ICONV_BUILD_SHARED=OFF -D DISABLE_LOCALE_CHARSET=ON -D CMAKE_INSTALL_PREFIX=/$mingw .
+          make -E CFLAGS=-Os prefix=/$mingw install
+          cd ..
 
-    - name: Upload wget
-      uses: actions/upload-artifact@v4
-      if: ${{success()}} || ${{failure()}}
-      with:
-        name: wget-${{env.mingw}}-${{env.build_type}}_${{env.SHA}}
-        path: |
-          ${{env.CDir}}/src/wget-${{matrix.ftype}}.exe
+      - name: configure
+        if: ${{ steps.check_upstream.outputs.skip != 'true' }}
+        run: |
+          mkdir -p $BDir
+          mkdir -p $CDir
+          cd $CDir
+          export CFLAGS+="-DGNULIB_defined_ESOCK"
+          if [ "${{ matrix.ftype }}" = "wintls-static-lite" ]; then
+            CFLAGS+=" -D_WIN32_WINNT=0x0A00 -Os" LDFLAGS="-static -s" $BRoot/wget/configure --prefix=$BRoot/$BDir --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
+          elif [ "${{ matrix.ftype }}" = "openssl-lite" ]; then
+            CFLAGS+=" -Os" LDFLAGS="-static -s" $BRoot/wget/configure --prefix=$BRoot/$BDir --with-ssl=openssl --disable-debug --disable-rpath --disable-nls --without-libpsl --without-metalink --disable-pcre --disable-pcre2 --with-winidn --enable-threads=windows
+          fi
 
-    - name: Get version number
-      run: |
-        VERSION=$(cat ${{env.CDir}}/.version)
-        echo "wget_VERSION=${VERSION}" >> $GITHUB_ENV
+      - name: Build
+        if: ${{ steps.check_upstream.outputs.skip != 'true' }}
+        run: |
+          cd $CDir
+          echo -e "all:\n\n" > gnulib_po/Makefile
+          make -j$(nproc)
+          cp -fv ${PWD}/src/wget.exe ${PWD}/src/wget-${{ matrix.ftype }}.exe
 
-    - name: Create Release
-      uses: ncipollo/release-action@v1
-      with:
-        tag: wget-${{ env.wget_VERSION }}
-        allowUpdates: true
-        artifacts: "${{env.CDir}}/src/wget-${{matrix.ftype}}.exe"
-        token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Show compiled wget info
+        if: ${{ steps.check_upstream.outputs.skip != 'true' }}
+        run: |
+          ls -l $CDir/src/wget-${{ matrix.ftype }}.exe
+          SHA=$(sha1sum $CDir/src/wget-${{ matrix.ftype }}.exe | cut -b 1-40)
+          echo SHA="$SHA" >> $GITHUB_ENV
+          $CDir/src/wget -V
 
+      - name: Upload wget
+        if: ${{ steps.check_upstream.outputs.skip != 'true' }}
+        uses: actions/upload-artifact@v4
+        if: ${{ success() }} || ${{ failure() }}
+        with:
+          name: wget-${{ env.mingw }}-${{ env.build_type }}_${{ env.SHA }}
+          path: |
+            ${{ env.CDir }}/src/wget-${{ matrix.ftype }}.exe
+
+      - name: Get version number
+        if: ${{ steps.check_upstream.outputs.skip != 'true' }}
+        run: |
+          VERSION=$(cat ${{ env.CDir }}/.version)
+          echo "wget_VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Create Release
+        if: ${{ steps.check_upstream.outputs.skip != 'true' }}
+        uses: ncipollo/release-action@v1
+        with:
+          tag: wget-${{ env.wget_VERSION }}
+          allowUpdates: true
+          artifacts: "${{ env.CDir }}/src/wget-${{ matrix.ftype }}.exe"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 构建成功后，把 .cache（包含 last_sha）存为新的缓存，key 带上 new_sha
+      - name: Save last upstream SHA to cache
+        if: ${{ steps.check_upstream.outputs.skip == 'false' }}
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: upstream-sha-${{ runner.os }}-${{ steps.check_upstream.outputs.new_sha }}
