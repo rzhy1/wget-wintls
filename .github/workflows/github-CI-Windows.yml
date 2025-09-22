@@ -164,13 +164,13 @@ jobs:
           $CDir/src/wget -V
 
       - name: Upload wget
-        if: ${{ steps.check_upstream.outputs.skip != 'true' }}
         uses: actions/upload-artifact@v4
-        if: ${{ success() }} || ${{ failure() }}
+        if: ${{ always() && (env.FORCE_BUILD == '1' || steps.check-upstream.outputs.changed == 'true') }}
         with:
-          name: wget-${{ env.mingw }}-${{ env.build_type }}_${{ env.SHA }}
+          name: wget-${{env.mingw}}-${{env.build_type}}_${{env.SHA}}
           path: |
-            ${{ env.CDir }}/src/wget-${{ matrix.ftype }}.exe
+            ${{env.CDir}}/src/wget-${{matrix.ftype}}.exe
+
 
       - name: Get version number
         if: ${{ steps.check_upstream.outputs.skip != 'true' }}
