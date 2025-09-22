@@ -2,8 +2,13 @@ name: wget-for-windows CI
 
 on:  
   push:  
-  pull_request:  
+  pull_request:   
   workflow_dispatch:
+    inputs:
+      force:
+        description: "强制编译 (1=强制, 0=仅检测更新)"
+        required: false
+        default: "0"
   schedule:  
     - cron: "0 0 * * *"
 
@@ -19,10 +24,43 @@ jobs:
     env:
       mingw: mingw${{matrix.bits}}
       build_type: ${{matrix.ftype}}
+      FORCE_BUILD: ${{ github.event.inputs.force || '0' }}
     defaults:
       run:
         shell: msys2 {0}
-    steps:          
+    steps:
+    - name: Restore last upstream SHA
+      uses: actions/cache@v4
+      with:
+        path: .cache
+        key: upstream-sha-cache
+
+    - name: Check upstream changes
+      shell: bash
+      run: |
+        mkdir -p .cache
+        git clone --depth=1 https://github.com/lifenjoiner/wget-for-windows.git tmprepo
+        NEW_SHA=$(cd tmprepo && git rev-parse HEAD)
+        echo "NEW_SHA=$NEW_SHA"
+
+        if [ -f .cache/last_sha ]; then
+          OLD_SHA=$(cat .cache/last_sha)
+        else
+          OLD_SHA=""
+        fi
+        echo "OLD_SHA=$OLD_SHA"
+
+        if [ "$FORCE_BUILD" = "1" ]; then
+          echo "FORCE_BUILD=1, 强制编译，不检查更新"
+        else
+          if [ "$NEW_SHA" = "$OLD_SHA" ]; then
+            echo "No upstream changes, skipping build."
+            exit 0
+          fi
+        fi
+
+        echo "$NEW_SHA" > .cache/last_sha
+
     - name: Set up ENVs for MSYS2 to inherit
       shell: bash
       run: |
@@ -51,7 +89,6 @@ jobs:
           mingw-w64-x86_64-gettext
           ${{ matrix.ftype == 'openssl-lite' && 'mingw-w64-x86_64-openssl' || '' }}
         
-    # 克隆指定的仓库
     - name: Clone wget repository
       run: git clone --branch mydev https://github.com/lifenjoiner/wget-for-windows.git wget
    
@@ -106,10 +143,12 @@ jobs:
         name: wget-${{env.mingw}}-${{env.build_type}}_${{env.SHA}}
         path: |
           ${{env.CDir}}/src/wget-${{matrix.ftype}}.exe
+
     - name: Get version number
       run: |
         VERSION=$(cat ${{env.CDir}}/.version)
         echo "wget_VERSION=${VERSION}" >> $GITHUB_ENV
+
     - name: Create Release
       uses: ncipollo/release-action@v1
       with:
@@ -117,3 +156,4 @@ jobs:
         allowUpdates: true
         artifacts: "${{env.CDir}}/src/wget-${{matrix.ftype}}.exe"
         token: ${{ secrets.GITHUB_TOKEN }}
+
