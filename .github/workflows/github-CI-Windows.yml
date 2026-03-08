@@ -164,7 +164,7 @@ jobs:
           $CDir/src/wget -V
 
       - name: Upload wget
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: ${{ always() && (env.FORCE_BUILD == '1' || steps.check-upstream.outputs.changed == 'true') }}
         with:
           name: wget-${{env.mingw}}-${{env.build_type}}_${{env.SHA}}
