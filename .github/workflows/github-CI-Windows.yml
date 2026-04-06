@@ -20,7 +20,7 @@ jobs:
         ftype: [wintls-static-lite,openssl-lite]
       fail-fast: false
     name: wget-wintls
-    runs-on: windows-latest
+    runs-on: windows-2025-vs2026
     env:
       mingw: mingw${{ matrix.bits }}
       build_type: ${{ matrix.ftype }}
