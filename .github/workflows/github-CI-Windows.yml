@@ -107,6 +107,7 @@ jobs:
             automake
             git
             texinfo
+            gettext-devel
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-gettext
             ${{ matrix.ftype == 'openssl-lite' && 'mingw-w64-x86_64-openssl' || '' }}
