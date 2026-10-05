@@ -95,7 +95,7 @@ jobs:
         if: ${{ steps.check_upstream.outputs.skip != 'true' }}
         uses: msys2/setup-msys2@v2
         with:
-          msystem: ${{ env.mingw }}
+          msystem: UCRT64
           release: true
           path-type: inherit
           install: >-
@@ -166,7 +166,7 @@ jobs:
 
       - name: Upload wget
         uses: actions/upload-artifact@v7
-        if: ${{ always() && (env.FORCE_BUILD == '1' || steps.check-upstream.outputs.changed == 'true') }}
+        if: ${{ always() && (env.FORCE_BUILD == '1' || steps.check_upstream.outputs.changed == 'true') }}
         with:
           name: wget-${{env.mingw}}-${{env.build_type}}_${{env.SHA}}
           path: |
