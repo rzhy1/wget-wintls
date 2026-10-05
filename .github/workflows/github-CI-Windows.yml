@@ -1,8 +1,8 @@
 name: wget-for-windows CI
 
-on:  
-  push:  
-  pull_request:   
+on:
+  push:
+  pull_request:
   workflow_dispatch:
     inputs:
       force:
@@ -16,22 +16,19 @@ jobs:
   build:
     strategy:
       matrix:
-        bits: [64]
-        ftype: [wintls-static-lite,openssl-lite]
+        ftype: [wintls-static-lite, openssl-lite]
       fail-fast: false
-    name: wget-wintls
+    name: wget-${{ matrix.ftype }}
     runs-on: windows-2025-vs2026
     env:
-      mingw: mingw${{ matrix.bits }}
+      msystem: UCRT64
       build_type: ${{ matrix.ftype }}
-      # workflow_dispatch 时可通过界面输入 force=1 强制编译
       FORCE_BUILD: ${{ github.event.inputs.force || '0' }}
     defaults:
       run:
         shell: msys2 {0}
 
     steps:
-      # 尝试恢复最近一次保存的 .cache（我们用 prefix upstream-sha- 来查找）
       - name: Restore last upstream SHA cache
         uses: actions/cache@v5
         with:
@@ -40,17 +37,15 @@ jobs:
           restore-keys: |
             upstream-sha-${{ runner.os }}-
 
-      # 检查上游是否有更新，写出 outputs: new_sha / old_sha / skip
       - id: check_upstream
         name: Check upstream changes
         shell: bash
         run: |
           mkdir -p .cache
 
-          # 获取上游最新 commit
           git clone --depth=1 https://github.com/lifenjoiner/wget-for-windows.git tmprepo
           NEW_SHA=$(cd tmprepo && git rev-parse HEAD)
-          echo "new_sha=$NEW_SHA" >> $GITHUB_OUTPUT
+          echo "new_sha=$NEW_SHA" >> "$GITHUB_OUTPUT"
           echo "Found upstream NEW_SHA=$NEW_SHA"
 
           if [ -f .cache/last_sha ]; then
@@ -58,44 +53,38 @@ jobs:
           else
             OLD_SHA=""
           fi
-          echo "old_sha=$OLD_SHA" >> $GITHUB_OUTPUT
+          echo "old_sha=$OLD_SHA" >> "$GITHUB_OUTPUT"
           echo "Found cached OLD_SHA=$OLD_SHA"
 
           if [ "${FORCE_BUILD}" = "1" ]; then
             echo "FORCE_BUILD=1 -> 强制编译"
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          elif [ "$NEW_SHA" = "$OLD_SHA" ]; then
+            echo "No upstream changes, skipping build."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            if [ "$NEW_SHA" = "$OLD_SHA" ]; then
-              echo "No upstream changes, skipping build."
-              echo "skip=true" >> $GITHUB_OUTPUT
-              # 注意：这里 exit 0 只是结束本 step，后续步骤由 if 控制是否执行
-              exit 0
-            else
-              # 保存新 sha 到 .cache/last_sha，稍后会把 .cache 缓存为 upstream-sha-<sha>
-              echo "$NEW_SHA" > .cache/last_sha
-              echo "skip=false" >> $GITHUB_OUTPUT
-            fi
+            echo "$NEW_SHA" > .cache/last_sha
+            echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
-        env:
-          FORCE_BUILD: ${{ env.FORCE_BUILD }}
 
-      # 下面的所有构建相关步骤都加上条件：只有 check_upstream.outputs.skip != 'true' 才会运行
-      - name: Set up ENVs for MSYS2 to inherit
+      - id: envs
+        name: Set up ENVs for MSYS2 to inherit
         if: ${{ steps.check_upstream.outputs.skip != 'true' }}
         shell: bash
         run: |
           BRoot="${PWD}"
-          BDir="build/${build_type}/${mingw}"
+          BDir="build/${build_type}/${msystem}"
           CDir="${BDir}-config"
-          echo BRoot="$BRoot" >> $GITHUB_ENV
-          echo BDir="$BDir" >> $GITHUB_ENV
-          echo CDir="$CDir" >> $GITHUB_ENV
+          echo "BRoot=$BRoot" >> "$GITHUB_ENV"
+          echo "BDir=$BDir"   >> "$GITHUB_ENV"
+          echo "CDir=$CDir"   >> "$GITHUB_ENV"
+          echo "cdir=$CDir"   >> "$GITHUB_OUTPUT"
 
       - name: Set up MSYS2
         if: ${{ steps.check_upstream.outputs.skip != 'true' }}
         uses: msys2/setup-msys2@v2
         with:
-          msystem: UCRT64
+          msystem: ${{ env.msystem }}
           release: true
           path-type: inherit
           install: >-
@@ -107,10 +96,11 @@ jobs:
             automake
             git
             texinfo
+            gettext
             gettext-devel
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-gettext
-            ${{ matrix.ftype == 'openssl-lite' && 'mingw-w64-x86_64-openssl' || '' }}
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-gettext
+            ${{ matrix.ftype == 'openssl-lite' && 'mingw-w64-ucrt-x86_64-openssl' || '' }}
 
       - name: Clone wget repository
         if: ${{ steps.check_upstream.outputs.skip != 'true' }}
@@ -132,8 +122,11 @@ jobs:
         run: |
           git clone -j$(nproc) https://github.com/win-iconv/win-iconv.git win-iconv
           cd win-iconv
-          cmake -G "MSYS Makefiles" -D WIN_ICONV_BUILD_SHARED=OFF -D DISABLE_LOCALE_CHARSET=ON -D CMAKE_INSTALL_PREFIX=/$mingw .
-          make -E CFLAGS=-Os prefix=/$mingw install
+          cmake -G "MSYS Makefiles" \
+            -D WIN_ICONV_BUILD_SHARED=OFF \
+            -D DISABLE_LOCALE_CHARSET=ON \
+            -D CMAKE_INSTALL_PREFIX=$MINGW_PREFIX .
+          make -E CFLAGS=-Os prefix=$MINGW_PREFIX install
           cd ..
 
       - name: configure
@@ -157,28 +150,28 @@ jobs:
           make -j$(nproc)
           cp -fv ${PWD}/src/wget.exe ${PWD}/src/wget-${{ matrix.ftype }}.exe
 
-      - name: Show compiled wget info
+      - id: info
+        name: Show compiled wget info
         if: ${{ steps.check_upstream.outputs.skip != 'true' }}
         run: |
           ls -l $CDir/src/wget-${{ matrix.ftype }}.exe
           SHA=$(sha1sum $CDir/src/wget-${{ matrix.ftype }}.exe | cut -b 1-40)
-          echo SHA="$SHA" >> $GITHUB_ENV
+          echo "SHA=$SHA" >> "$GITHUB_ENV"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           $CDir/src/wget -V
 
       - name: Upload wget
+        if: ${{ steps.check_upstream.outputs.skip != 'true' }}
         uses: actions/upload-artifact@v7
-        if: ${{ always() && (env.FORCE_BUILD == '1' || steps.check_upstream.outputs.changed == 'true') }}
         with:
-          name: wget-${{env.mingw}}-${{env.build_type}}_${{env.SHA}}
-          path: |
-            ${{env.CDir}}/src/wget-${{matrix.ftype}}.exe
-
+          name: wget-${{ env.msystem }}-${{ env.build_type }}_${{ steps.info.outputs.sha }}
+          path: ${{ steps.envs.outputs.cdir }}/src/wget-${{ matrix.ftype }}.exe
 
       - name: Get version number
         if: ${{ steps.check_upstream.outputs.skip != 'true' }}
         run: |
           VERSION=$(cat ${{ env.CDir }}/.version)
-          echo "wget_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "wget_VERSION=${VERSION}" >> "$GITHUB_ENV"
 
       - name: Create Release
         if: ${{ steps.check_upstream.outputs.skip != 'true' }}
@@ -189,7 +182,6 @@ jobs:
           artifacts: "${{ env.CDir }}/src/wget-${{ matrix.ftype }}.exe"
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # 构建成功后，把 .cache（包含 last_sha）存为新的缓存，key 带上 new_sha
       - name: Save last upstream SHA to cache
         if: ${{ steps.check_upstream.outputs.skip == 'false' }}
         uses: actions/cache@v5
